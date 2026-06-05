@@ -23,6 +23,7 @@
             <option value="$PROJECT_DIR$/build-logic" />
             <option value="$PROJECT_DIR$/build-logic/convention" />
             <option value="$PROJECT_DIR$/common" />
+            <option value="$PROJECT_DIR$/logger" />
           </set>
         </option>
       </GradleProjectSettings>
