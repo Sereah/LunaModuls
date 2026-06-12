@@ -5,7 +5,7 @@ plugins {
 
 lunaPublish {
     artifactId.set("common")
-    artifactVersion.set("1.0.1")
+    artifactVersion.set("1.0.2")
     artifactName.set("Luna Common Utilities")
     artifactDescription.set("Core common utilities for Luna modules, supporting safe coroutines and some tools.")
 }

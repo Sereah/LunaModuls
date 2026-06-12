@@ -21,11 +21,11 @@ object CommonLog {
         this.errorLogger = error
     }
 
-    fun d(tag: String, msg: String) {
+    internal fun d(tag: String, msg: String) {
         debugLogger?.invoke(tag, msg) ?: Log.d(tag, msg)
     }
 
-    fun e(tag: String, msg: String, tr: Throwable? = null) {
+    internal fun e(tag: String, msg: String, tr: Throwable? = null) {
         errorLogger?.invoke(tag, msg, tr) ?: Log.e(tag, msg, tr)
     }
 }
