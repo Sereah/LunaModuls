@@ -2,82 +2,130 @@ package com.lunacattus.logger
 
 import android.util.Log
 import androidx.annotation.Keep
+import java.io.File
+import java.io.FileWriter
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
 
-/**
- * LunaApp 统一日志管理工具
- * 支持高并发、超长日志自动分片，具备完善的 Java/Kotlin 混编互操作性。
- */
 @Keep
 object Logger {
     private var baseTag: String = "LunaLogger"
-    private var showThreadAndTime = false
+    private var showThreadName = false
+    private var isDebug = true
 
-    private val dateFormatLocal = object : ThreadLocal<SimpleDateFormat>() {
-        override fun initialValue(): SimpleDateFormat {
-            return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    private var logFileDir: File? = null
+    private var currentLogFile: File? = null
+    private val logExecutor = Executors.newSingleThreadExecutor()
+    private val logTimeFormat by lazy {
+        SimpleDateFormat(
+            "yyyy-MM-dd HH:mm:ss.SSS",
+            Locale.getDefault()
+        )
+    }
+
+    private const val MAX_LOG_CHUNK_SIZE = 2000
+
+    private var maxFileSizeByte = 10L * 1024 * 1024
+    private var maxDirSizeByte = 50L * 1024 * 1024
+
+    private val fileDateFormat by lazy { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+
+    /**
+     * 初始化全局 Base TAG、线程名显示开关以及 Debug 环境开关
+     *
+     * @param tag 全局日志的主 TAG 标识
+     * @param showThreadName 是否在日志内容中附带线程名，默认为 false
+     * @param isDebug 是否为测试环境，若为 false 则关闭所有 Logcat 输出，默认为 true
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun initBaseTag(tag: String, showThreadName: Boolean = false, isDebug: Boolean = true) {
+        baseTag = tag
+        this.showThreadName = showThreadName
+        this.isDebug = isDebug
+    }
+
+    /**
+     * 初始化本地日志文件保存路径并配置容量限制，调用后将自动开启本地保存功能
+     *
+     * @param dir 本地日志存储的目录文件对象
+     * @param maxFileSizeMb 单个日志文件的最大体积限制，单位为 MB，默认为 10
+     * @param maxDirSizeMb 日志总目录的最大配额限制，单位为 MB，默认为 50
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun initFileLogger(dir: File, maxFileSizeMb: Int = 10, maxDirSizeMb: Int = 50) {
+        if (!dir.exists()) dir.mkdirs()
+        logFileDir = dir
+
+        maxFileSizeByte = maxFileSizeMb.toLong() * 1024 * 1024
+        maxDirSizeByte = maxDirSizeMb.toLong() * 1024 * 1024
+
+        logExecutor.execute {
+            checkAndCleanExpiredFiles()
+            prepareLogFile()
         }
     }
 
-    private const val MAX_LOG_CHUNK_SIZE = 3500
-
     /**
-     * 初始化全局 Base TAG 和线程元数据显示开关
+     * 打印 DEBUG 级别日志，未指定 tag 时自动获取调用处类名
      *
-     * @param tag 全局日志的主 TAG 标识
-     * @param showThreadAndTime 是否在日志内容中附带时间戳和线程名，默认为 false
+     * @param tag 子模块或类别的局部 TAG（可选）
+     * @param message 日志文本内容
      */
     @JvmStatic
     @JvmOverloads
-    fun initBaseTag(tag: String, showThreadAndTime: Boolean = false) {
-        baseTag = tag
-        this.showThreadAndTime = showThreadAndTime
+    fun d(tag: String = "", message: String) {
+        val finalTag = tag.ifEmpty { getThrowableClassName() }
+        log(message, LogLevel.DEBUG, finalTag)
     }
 
     /**
-     * 打印 DEBUG 级别日志
+     * 打印 INFO 级别日志，未指定 tag 时自动获取调用处类名
      *
      * @param tag 子模块或类别的局部 TAG（可选）
      * @param message 日志文本内容
      */
     @JvmStatic
     @JvmOverloads
-    fun d(tag: String = "", message: String) = log(message, LogLevel.DEBUG, tag)
+    fun i(tag: String = "", message: String) {
+        val finalTag = tag.ifEmpty { getThrowableClassName() }
+        log(message, LogLevel.INFO, finalTag)
+    }
 
     /**
-     * 打印 INFO 级别日志
+     * 打印 WARN 级别日志，未指定 tag 时自动获取调用处类名
      *
      * @param tag 子模块或类别的局部 TAG（可选）
      * @param message 日志文本内容
      */
     @JvmStatic
     @JvmOverloads
-    fun i(tag: String = "", message: String) = log(message, LogLevel.INFO, tag)
+    fun w(tag: String = "", message: String) {
+        val finalTag = tag.ifEmpty { getThrowableClassName() }
+        log(message, LogLevel.WARN, finalTag)
+    }
 
     /**
-     * 打印 WARN 级别日志
+     * 打印 ERROR 级别日志，支持传入异常堆栈，未指定 tag 时自动获取调用处类名
      *
-     * @param tag 子模块或类别的局部 TAG（可选）
+     * @param tag 子模块或类别的局部 TAG（可选']）
      * @param message 日志文本内容
+     * @param throwable 异常对象（可选）
      */
     @JvmStatic
     @JvmOverloads
-    fun w(tag: String = "", message: String) = log(message, LogLevel.WARN, tag)
+    fun e(tag: String = "", message: String, throwable: Throwable? = null) {
+        val finalTag = tag.ifEmpty { getThrowableClassName() }
+        val exceptionMessage = throwable?.let { "\n${Log.getStackTraceString(it)}" } ?: ""
+        log(message + exceptionMessage, LogLevel.ERROR, finalTag)
+    }
 
     /**
-     * 打印 ERROR 级别日志
-     *
-     * @param tag 子模块或类别的局部 TAG（可选）
-     * @param message 日志文本内容
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun e(tag: String = "", message: String) = log(message, LogLevel.ERROR, tag)
-
-    /**
-     * 以封闭边框（Box）样式打印格式化日志，常用于协议报文、复杂数据结构的排版调试
+     * 以封闭边框（Box）样式打印格式化日志，内部支持长日志按行分片切分
      *
      * @param tag 子模块或类别的局部 TAG（可选）
      * @param message 日志文本内容
@@ -103,7 +151,8 @@ object Logger {
             appendLine(" ".repeat(contentWidth + 2))
             append(border)
         }
-        log(boxed, LogLevel.INFO, tag)
+        val finalTag = tag.ifEmpty { getThrowableClassName() }
+        log(boxed, LogLevel.INFO, finalTag)
     }
 
     /**
@@ -121,26 +170,35 @@ object Logger {
     }
 
     private fun log(message: String, level: LogLevel = LogLevel.INFO, subTag: String) {
-        val timestamp = dateFormatLocal.get()?.format(Date()) ?: ""
-        val threadName = Thread.currentThread().name
         val logcatTag = if (subTag.isNotEmpty()) "$baseTag.$subTag" else baseTag
-        val prefix = if (showThreadAndTime) "[$timestamp] [$threadName] " else "[$timestamp] "
-        val fullContent = prefix + message
+        val threadName = Thread.currentThread().name
+        val prefix = if (showThreadName) "[$threadName] " else ""
 
-        if (fullContent.length > MAX_LOG_CHUNK_SIZE) {
-            var i = 0
-            while (i < fullContent.length) {
-                val end = minOf(fullContent.length, i + MAX_LOG_CHUNK_SIZE)
-                val chunk = fullContent.substring(i, end)
-                printToLogcat(level, logcatTag, chunk)
-                i += MAX_LOG_CHUNK_SIZE
+        val lines = message.split("\n")
+        for (line in lines) {
+            val fullLine = prefix + line
+            if (fullLine.length > MAX_LOG_CHUNK_SIZE) {
+                var i = 0
+                while (i < fullLine.length) {
+                    val end = minOf(fullLine.length, i + MAX_LOG_CHUNK_SIZE)
+                    val chunk = if (i == 0) {
+                        fullLine.substring(i, end)
+                    } else {
+                        prefix + "-> " + fullLine.substring(i, end)
+                    }
+                    printToLogcat(level, logcatTag, chunk)
+                    writeLogToFile(level, logcatTag, chunk)
+                    i += MAX_LOG_CHUNK_SIZE
+                }
+            } else {
+                printToLogcat(level, logcatTag, fullLine)
+                writeLogToFile(level, logcatTag, fullLine)
             }
-        } else {
-            printToLogcat(level, logcatTag, fullContent)
         }
     }
 
     private fun printToLogcat(level: LogLevel, tag: String, msg: String) {
+        if (!isDebug) return
         when (level) {
             LogLevel.VERBOSE -> Log.v(tag, msg)
             LogLevel.DEBUG -> Log.d(tag, msg)
@@ -148,6 +206,68 @@ object Logger {
             LogLevel.WARN -> Log.w(tag, msg)
             LogLevel.ERROR -> Log.e(tag, msg)
         }
+    }
+
+    private fun writeLogToFile(level: LogLevel, tag: String, msg: String) {
+        if (logFileDir == null) return
+        val logTime = logTimeFormat.format(Date())
+        val fileLine = "$logTime ${level.name[0]}/$tag: $msg\n"
+
+        logExecutor.execute {
+            try {
+                prepareLogFile()
+                currentLogFile?.let { file ->
+                    FileWriter(file, true).use { writer ->
+                        writer.write(fileLine)
+                    }
+                }
+            } catch (e: IOException) {
+                Log.e("Logger", "Failed to write log to file", e)
+            }
+        }
+    }
+
+    private fun prepareLogFile() {
+        val dir = logFileDir ?: return
+        val dateStr = fileDateFormat.format(Date())
+        var file = File(dir, "log_$dateStr.txt")
+
+        if (file.exists() && file.length() > maxFileSizeByte) {
+            var index = 1
+            while (file.exists() && file.length() > maxFileSizeByte) {
+                file = File(dir, "log_${dateStr}_$index.txt")
+                index++
+            }
+        }
+
+        if (currentLogFile?.absolutePath != file.absolutePath) {
+            currentLogFile = file
+            checkAndCleanExpiredFiles()
+        }
+    }
+
+    private fun checkAndCleanExpiredFiles() {
+        val dir = logFileDir ?: return
+        val files = dir.listFiles { f -> f.isFile && f.name.startsWith("log_") } ?: return
+
+        var totalSize = files.sumOf { it.length() }
+        if (totalSize > maxDirSizeByte) {
+            files.sortBy { it.lastModified() }
+            for (file in files) {
+                val fileSize = file.length()
+                if (file.delete()) {
+                    totalSize -= fileSize
+                    if (totalSize <= maxDirSizeByte * 0.7) break
+                }
+            }
+        }
+    }
+
+    private fun getThrowableClassName(): String {
+        val stackTrace = Throwable().stackTrace
+        if (stackTrace.size < 4) return ""
+        val className = stackTrace[3].className
+        return className.substringAfterLast(".")
     }
 
     private enum class LogLevel {
