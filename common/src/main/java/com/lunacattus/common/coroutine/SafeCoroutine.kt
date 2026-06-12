@@ -1,5 +1,6 @@
-package com.lunacattus.common
+package com.lunacattus.common.coroutine
 
+import com.lunacattus.common.CommonLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineName
