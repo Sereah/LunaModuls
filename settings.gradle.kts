@@ -27,3 +27,4 @@ rootProject.name = "LunaModules"
 include(":common")
 include(":logger")
 include(":network")
+include(":framework-jar")
