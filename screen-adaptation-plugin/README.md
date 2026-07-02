@@ -120,7 +120,3 @@ dp = px / (dpi / 160)
 # 然后发布到 Sonatype Central Portal
 ./gradlew :screen-adaptation-plugin:publishToCentralPortal
 ```
-
-## 许可证
-
-Apache License, Version 2.0
