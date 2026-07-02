@@ -9,19 +9,35 @@ import java.util.Properties
 import java.util.UUID
 
 plugins {
-    `java-library`
+    `java-gradle-plugin`
+    kotlin("jvm")
     `maven-publish`
     signing
 }
 
 group = "com.lunacattus.android"
-version = "1.0.0"
+version = "1.0.3"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
     withSourcesJar()
     withJavadocJar()
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+gradlePlugin {
+    plugins {
+        register("frameworkJar") {
+            id = "com.lunacattus.android.framework.jar"
+            implementationClass = "FrameworkJarConventionPlugin"
+        }
+    }
 }
 
 // ========== Credential resolution (same pattern as build-logic) ==========
@@ -88,45 +104,37 @@ publishing {
         val pn = project.name
         val pv = project.version.toString()
 
-        // 1. Plugin JAR — used via buildscript { classpath("...") }
-        create<MavenPublication>("pluginJar") {
-            groupId = pg
-            artifactId = pn
-            version = pv
-            from(components["java"])
-            configurePom("Framework Jar Plugin", "Gradle plugin for compiling against AOSP framework JARs")
+        // 1. Plugin JAR (auto-created by java-gradle-plugin as 'pluginMaven')
+        //    Configure its POM metadata (afterEvaluate because java-gradle-plugin creates it lazily):
+        all {
+            if (this is MavenPublication && name == "pluginMaven") {
+                configurePom("Framework Jar Plugin", "Gradle plugin for compiling against AOSP framework JARs")
+            }
         }
 
-        // 2. Plugin marker artifact — allows plugins { id("...") version "..." } DSL
-        create<MavenPublication>("pluginMarker") {
-            groupId = "com.lunacattus.android.framework.jar"
-            artifactId = "com.lunacattus.android.framework.jar.gradle.plugin"
-            version = pv
-
-            pom.withXml {
-                asNode().apply {
-                    appendNode("name", "Framework Jar Plugin")
-                    appendNode("description", "Gradle plugin marker for lunacattus.android.framework.jar")
-                    appendNode("url", "https://github.com/Sereah/LunaModules")
-                    appendNode("licenses").appendNode("license").apply {
-                        appendNode("name", "The Apache License, Version 2.0")
-                        appendNode("url", "http://www.apache.org/licenses/LICENSE-2.0.txt")
-                    }
-                    appendNode("developers").appendNode("developer").apply {
-                        appendNode("id", "Sereah")
-                        appendNode("name", "Glacien")
-                        appendNode("email", "galcien.zhou@outlook.com")
-                    }
-                    appendNode("scm").apply {
-                        appendNode("connection", "scm:git:github.com/Sereah/LunaModules.git")
-                        appendNode("developerConnection", "scm:git:ssh://github.com/Sereah/LunaModules.git")
+        // 2. Plugin marker POM (auto-created by java-gradle-plugin per registered plugin).
+        //    Add metadata required by Maven Central:
+        all {
+            if (this is MavenPublication && name.contains("PluginMarker")) {
+                pom.withXml {
+                    asNode().apply {
+                        appendNode("name", "Framework Jar Plugin")
+                        appendNode("description", "Gradle plugin marker for com.lunacattus.android.framework.jar")
                         appendNode("url", "https://github.com/Sereah/LunaModules")
-                    }
-                    appendNode("dependencies").appendNode("dependency").apply {
-                        appendNode("groupId", pg)
-                        appendNode("artifactId", pn)
-                        appendNode("version", pv)
-                        appendNode("scope", "runtime")
+                        appendNode("licenses").appendNode("license").apply {
+                            appendNode("name", "The Apache License, Version 2.0")
+                            appendNode("url", "http://www.apache.org/licenses/LICENSE-2.0.txt")
+                        }
+                        appendNode("developers").appendNode("developer").apply {
+                            appendNode("id", "Sereah")
+                            appendNode("name", "Glacien")
+                            appendNode("email", "galcien.zhou@outlook.com")
+                        }
+                        appendNode("scm").apply {
+                            appendNode("connection", "scm:git:github.com/Sereah/LunaModules.git")
+                            appendNode("developerConnection", "scm:git:ssh://github.com/Sereah/LunaModules.git")
+                            appendNode("url", "https://github.com/Sereah/LunaModules")
+                        }
                     }
                 }
             }
@@ -228,7 +236,8 @@ publishing {
 
                             val deps = appendNode("dependencies")
                             jars.forEach { jar ->
-                                val aid = if (jar.type == "framework") "android-framework$artSuffix" else "${jar.type}-framework$artSuffix"
+                                val jarSuffix = if (jar.isCustom) "-custom" else ""
+                                val aid = if (jar.type == "framework") "android-framework$jarSuffix" else "${jar.type}-framework$jarSuffix"
                                 deps.appendNode("dependency").apply {
                                     appendNode("groupId", pg)
                                     appendNode("artifactId", aid)
@@ -288,6 +297,18 @@ afterEvaluate {
 
             publishing.publications.forEach { sign(it) }
         }
+
+        // Ensure signing completes before publishing (Gradle 9 strict validation)
+        tasks.configureEach(object : Action<Task> {
+            override fun execute(t: Task) {
+                if (t.name.startsWith("publish") && t.name.endsWith("PublicationToMavenLocal")) {
+                    t.dependsOn(tasks.matching { it.name.startsWith("sign") && it.name.endsWith("Publication") })
+                }
+                if (t.name.startsWith("publish") && t.name.endsWith("PublicationToLocalBundleRepository")) {
+                    t.dependsOn(tasks.matching { it.name.startsWith("sign") && it.name.endsWith("Publication") })
+                }
+            }
+        })
     }
 }
 
@@ -298,7 +319,12 @@ tasks.register<Zip>("zipDeploymentBundle") {
     archiveFileName.set("deployment-bundle.zip")
     destinationDirectory.set(layout.buildDirectory.dir("outputs/bundle"))
     from(layout.buildDirectory.dir("temp-repo"))
-    dependsOn(tasks.withType<AbstractPublishToMaven>())
+    dependsOn(tasks.matching {
+        val n = it.name
+        n.startsWith("publish") && n.endsWith("PublicationToLocalBundleRepository") &&
+        n.removePrefix("publish").removeSuffix("PublicationToLocalBundleRepository")
+            .let { pubPart -> pubPart == "PluginMaven" || pubPart.contains("PluginMarker") || pubPart.contains("Bluetooth13Custom") }
+    })
 }
 
 val publishVersion = project.version.toString()
