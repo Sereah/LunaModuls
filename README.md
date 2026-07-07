@@ -13,13 +13,14 @@ Android 多模块基础库，发布至 `com.lunacattus.android`。各模块独�
 | [network](network/README.md) | 1.0.0 | 网络库：基于 Result 的 HTTP 客户端 + 带指数退避重连的 WebSocket 客户端 + ULID 生成器 |
 | [statemachine](statemachine/README.md) | 1.0.0 | 状态机：协程版平级状态机 & 经典 Handler 版层级状态机                             |
 | [screen-adaptation-plugin](screen-adaptation-plugin/README.md) | 1.0.0 | Gradle 插件：根据设计图参数自动生成多屏幕适配 `dimens.xml`                      |
+| [llm](llm/README.md) | 1.0.1 | 端侧 LLM 推理 SDK：文本分类（ONNX/llama.cpp）+ 对话生成（llama.cpp Chat）            |
 | [framework-jar](framework-jar/README.md) | 1.0.0 | Gradle 插件：下载不同版本的 AOSP framework JAR 用于 ksp/compileOnly      |
 
 ---
 
 ## 快速添加
 
-### 基础库（common / logger / network / statemachine）
+### 基础库（common / logger / network / statemachine / llm）
 
 ```kotlin
 // build.gradle.kts
@@ -28,6 +29,7 @@ dependencies {
     implementation("com.lunacattus.android:logger:1.1.0")
     implementation("com.lunacattus.android:network:1.0.0")
     implementation("com.lunacattus.android:statemachine:1.0.0")
+    implementation("com.lunacattus.android:llm:1.0.1")
 }
 ```
 
@@ -94,6 +96,14 @@ frameworkJar {
 - 根据设计图宽高/DPI 生成多屏幕 `dimens.xml`
 - 支持多目标屏幕、ADB 自动探测、CSV 配置文件批量导入
 - 自定义 dp/sp 命名格式
+
+📖 **[llm — 端侧 LLM 推理 SDK](llm/README.md)**
+
+- **分类引擎**：ONNX Runtime（CPU / NNAPI / 高通 QNN NPU）或 llama.cpp 后端，支持 NLU 意图识别
+- **生成引擎**：llama.cpp Chat，GGUF 模型，Flow 流式 token 输出
+- **自定义日志**：`LlmLog.setLogger` 可插拔日志回调
+- **异常体系**：`LlmException` 统一异常，覆盖模型加载、推理、NPU 不可用等场景
+- ⚠️ 宿主 App 需配置 `packaging.jniLibs.useLegacyPackaging = true`
 
 📖 **[framework-jar — Framework JAR 插件](framework-jar/README.md)**
 

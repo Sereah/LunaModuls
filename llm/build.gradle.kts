@@ -5,7 +5,7 @@ plugins {
 
 lunaPublish {
     artifactId.set("llm")
-    artifactVersion.set("1.0.0")
+    artifactVersion.set("1.0.1")
     artifactName.set("Luna llm Utilities")
     artifactDescription.set("Llm utilities for Luna")
 }
