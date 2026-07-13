@@ -112,5 +112,5 @@ object LlmNative {
      * @return 0 成功，非 0 失败
      */
     @JvmStatic
-    external fun nativeSetQnnEnv(nativeLibDir: String): Int
+    external fun nativeSetQnnEnv(nativeLibDir: String, skelDir: String): Int
 }

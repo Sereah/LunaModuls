@@ -178,24 +178,36 @@ internal class OnnxClassifier(
         try {
             val nativeLibDir = context.applicationInfo.nativeLibraryDir
 
-            // 1. JNI: 设置 QNN DSP 路径（如需要）
-            // LlmNative.nativeSetQnnEnv(nativeLibDir)
+            // 1. JNI: 设置 ADSP_LIBRARY_PATH，使 FastRPC 能找到 Stub/Skel
+            LlmNative.nativeSetQnnEnv(nativeLibDir, skelDir = nativeLibDir)
 
-            // 2. 禁止 CPU 回退（调试阶段可以注释掉，让 ORT 自动回退）
-            // options.addConfigEntry("session.disable_cpu_ep_fallback", "1")
+            // 2. backend_path
+            val backendPath = qnn?.backendPath ?: "$nativeLibDir/libQnnHtp.so"
+            LlmLog.d(TAG, "QNN backend_path: $backendPath")
 
-            // 3. 构建 QNN EP 参数：默认 backend_type=htp，带 QnnConfig 则使用完整配置
-            val qnnOpts = if (qnn != null) {
-                val opts = qnn.toProviderOptions().toMutableMap()
-                if (!opts.containsKey("backend_path") && !opts.containsKey("backend_type")) {
-                    opts["backend_type"] = "htp"
-                }
-                opts
-            } else {
-                linkedMapOf("backend_type" to "htp")
+            // 3. QNN EP 参数
+            val qnnOpts = linkedMapOf(
+                "backend_path" to backendPath,
+                "htp_performance_mode" to (qnn?.performanceMode ?: "burst"),
+            )
+            // soc_model：优先使用用户指定值，不传则依赖 QNN 自动检测
+            if (!qnn?.socModel.isNullOrEmpty()) {
+                qnnOpts["soc_model"] = qnn.socModel
+            }
+            if (qnn?.enableFp16Precision != false) {
+                qnnOpts["enable_htp_fp16_precision"] = "1"
+            }
+            if ((qnn?.vtcmMb ?: 0) > 0) {
+                qnnOpts["vtcm_mb"] = qnn!!.vtcmMb.toString()
             }
 
             options.addQnn(qnnOpts)
+
+            // 4. 开启 profiling，输出每个 op 的 EP 分配
+            val profilePath = "${context.filesDir.absolutePath}/ort_profile"
+            options.enableProfiling(profilePath)
+            LlmLog.d(TAG, "Profiling 已开启，输出前缀: $profilePath")
+
             LlmLog.d(TAG, "QNN NPU started (config=${qnn})")
         } catch (e: Throwable) {
             LlmLog.e(TAG, "QNN NPU can't use，back to CPU", e)
