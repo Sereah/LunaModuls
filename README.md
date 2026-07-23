@@ -14,6 +14,7 @@ Android 多模块基础库，发布至 `com.lunacattus.android`。各模块独�
 | [statemachine](statemachine/README.md) | 1.0.0 | 状态机：协程版平级状态机 & 经典 Handler 版层级状态机                             |
 | [screen-adaptation-plugin](screen-adaptation-plugin/README.md) | 1.0.0 | Gradle 插件：根据设计图参数自动生成多屏幕适配 `dimens.xml`                      |
 | [llm](llm/README.md) | 1.0.1 | 端侧 LLM 推理 SDK：文本分类（ONNX/llama.cpp）+ 对话生成（llama.cpp Chat）            |
+| [permission-compose](permission-compose/README.md) | 1.0.0 | 权限请求库：统一处理标准权限弹窗、特殊权限跳转、理由/设置弹窗的完整生命周期 |
 | [framework-jar](framework-jar/README.md) | 1.0.0 | Gradle 插件：下载不同版本的 AOSP framework JAR 用于 ksp/compileOnly      |
 
 ---
@@ -29,6 +30,7 @@ dependencies {
     implementation("com.lunacattus.android:logger:1.1.0")
     implementation("com.lunacattus.android:network:1.0.0")
     implementation("com.lunacattus.android:statemachine:1.0.0")
+    implementation("com.lunacattus.android:permission-compose:1.0.0")
     implementation("com.lunacattus.android:llm:1.0.1")
 }
 ```
@@ -104,6 +106,15 @@ frameworkJar {
 - **自定义日志**：`LlmLog.setLogger` 可插拔日志回调
 - **异常体系**：`LlmException` 统一异常，覆盖模型加载、推理、NPU 不可用等场景
 - ⚠️ 宿主 App 需配置 `packaging.jniLibs.useLegacyPackaging = true`
+
+📖 **[permission-compose — 权限请求库](permission-compose/README.md)**
+
+- `rememberPermissionState`：一站式权限请求入口，自动处理弹窗、生命周期和结果回调
+- 标准权限 → 系统弹窗；特殊权限（悬浮窗/修改系统设置）→ 自动跳转系统设置页
+- 用户拒绝一次 → 展示理由弹窗；永久拒绝 → 展示设置弹窗
+- 同伴权限组（Android 14+ "选择部分照片"）：组内任一授权即视为整组成功
+- 支持自定义弹窗样式、权限名称本地化、Material Icons 图标
+- `PermissionLog.setLogger`：可插拔日志回调
 
 📖 **[framework-jar — Framework JAR 插件](framework-jar/README.md)**
 

@@ -4,6 +4,8 @@ kotlin = "2.1.10"
 kotlinxCoroutines = "1.11.0"
 okhttp = "5.3.2"
 annotationJvm = "1.10.0"
+composeBom = "2026.06.01"
+activityCompose = "1.13.0"
 
 [libraries]
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
@@ -11,8 +13,16 @@ kotlin-gradlePlugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-pl
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 annotation-jvm = { group = "androidx.annotation", name = "annotation-jvm", version.ref = "annotationJvm" }
+# compose
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+foundation = { module = "androidx.compose.foundation:foundation" }
+ui = { module = "androidx.compose.ui:ui" }
+material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+material3 = { module = "androidx.compose.material3:material3" }
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 
