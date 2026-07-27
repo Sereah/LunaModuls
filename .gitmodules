@@ -1,3 +1,4 @@
 [submodule "llm/third_party/llama.cpp"]
 	path = llm/third_party/llama.cpp
 	url = https://github.com/ggml-org/llama.cpp.git
+	shallow = true
