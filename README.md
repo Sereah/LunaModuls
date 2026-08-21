@@ -15,6 +15,7 @@ Android 多模块基础库，发布至 `com.lunacattus.android`。各模块独�
 | [screen-adaptation-plugin](screen-adaptation-plugin/README.md) | 1.0.0 | Gradle 插件：根据设计图参数自动生成多屏幕适配 `dimens.xml`                      |
 | [llm](llm/README.md) | 1.0.1 | 端侧 LLM 推理 SDK：文本分类（ONNX/llama.cpp）+ 对话生成（llama.cpp Chat）            |
 | [permission-compose](permission-compose/README.md) | 1.0.0 | 权限请求库：统一处理标准权限弹窗、特殊权限跳转、理由/设置弹窗的完整生命周期 |
+| [nav3](nav3/README.md) | 1.0.0 | Navigation 3 导航库：单栈导航 `Nav3App` + 自适应多层级导航 `Nav3SuiteApp` |
 | [framework-jar](framework-jar/README.md) | 1.0.0 | Gradle 插件：下载不同版本的 AOSP framework JAR 用于 ksp/compileOnly      |
 
 ---
@@ -32,6 +33,7 @@ dependencies {
     implementation("com.lunacattus.android:statemachine:1.0.0")
     implementation("com.lunacattus.android:permission-compose:1.0.0")
     implementation("com.lunacattus.android:llm:1.0.1")
+    implementation("com.lunacattus.android:nav3:1.0.0")
 }
 ```
 
@@ -115,6 +117,15 @@ frameworkJar {
 - 同伴权限组（Android 14+ "选择部分照片"）：组内任一授权即视为整组成功
 - 支持自定义弹窗样式、权限名称本地化、Material Icons 图标
 - `PermissionLog.setLogger`：可插拔日志回调
+
+📖 **[nav3 — Navigation 3 导航库](nav3/README.md)**
+
+- **单栈导航**：`Nav3App`，适用于简单全屏页面的 push/pop
+- **多层级导航**：`Nav3SuiteApp`，底部导航栏 / 导航轨道 / 抽屉随窗口尺寸自适应切换，每个顶层路由独立返回栈
+- **Root 覆盖层**：`RootRoute` 实现全屏覆盖页（如播放页），叠加在 tab 内容之上
+- **入口扩展函数**：`entryWithVm` / `entryWithNav` / `entryWithNavAndVm`，集成 Hilt ViewModel 注入
+- **预置转场**：水平 / 垂直 / 淡入淡出 / 缩放等 `ContentTransform`
+- `Nav3Log.setLogger`：可插拔日志回调
 
 📖 **[framework-jar — Framework JAR 插件](framework-jar/README.md)**
 
